@@ -104,17 +104,45 @@ export function IDCardSection() {
 
   const downloadCardsAsPDF = () => {
     const element = document.getElementById('id-cards-print-area');
-    if (!element) return;
+    if (!element) {
+      console.error('ID cards print area not found');
+      alert('Print area not found. Please try again.');
+      return;
+    }
 
-    const opt = {
-      margin: 0.5,
-      filename: `id-cards-${selectedCategory}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'in', format: 'a4', orientation: orientation === 'landscape' ? 'landscape' : 'portrait' }
-    };
+    console.log('Starting PDF generation for ID cards');
+    console.log('Element found:', element);
 
-    html2pdf().set(opt).from(element).save();
+    // Add a small delay to ensure the element is fully rendered
+    setTimeout(() => {
+      const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5], // top, right, bottom, left
+        filename: `id-cards-${selectedCategory}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 1.5, // Reduced scale for better compatibility
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: element.scrollWidth,
+          height: element.scrollHeight
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'a4',
+          orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
+          compress: true
+        }
+      };
+
+      html2pdf().set(opt).from(element).outputPdf().then((pdf: any) => {
+        console.log('PDF generated, downloading...');
+        pdf.save(`id-cards-${selectedCategory}.pdf`);
+      }).catch((error: any) => {
+        console.error('PDF generation failed:', error);
+        alert('PDF generation failed. Please check the console for details.');
+      });
+    }, 500);
   };
 
   const samplePreviewData: Record<CardCategory, IDCardData> = {
@@ -349,7 +377,10 @@ export function IDCardSection() {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                onClick={downloadCardsAsPDF}
+                onClick={() => {
+                  console.log('Download PDF button clicked for ID cards');
+                  downloadCardsAsPDF();
+                }}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg shadow-blue-600/20 uppercase text-xs tracking-widest"
               >
                 <Download size={18} />

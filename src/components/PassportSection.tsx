@@ -41,17 +41,45 @@ export function PassportSection() {
 
   const handleDownloadPDF = () => {
     const element = document.getElementById('passport-print-area');
-    if (!element) return;
+    if (!element) {
+      console.error('Passport print area not found');
+      alert('Print area not found. Please try again.');
+      return;
+    }
 
-    const opt = {
-      margin: 0.5,
-      filename: 'passport-photos.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
+    console.log('Starting PDF generation for passport photos');
+    console.log('Element found:', element);
 
-    html2pdf().set(opt).from(element).save();
+    // Add a small delay to ensure the element is fully rendered
+    setTimeout(() => {
+      const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5], // top, right, bottom, left
+        filename: 'passport-photos.pdf',
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 1.5, // Reduced scale for better compatibility
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: element.scrollWidth,
+          height: element.scrollHeight
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'a4',
+          orientation: 'portrait',
+          compress: true
+        }
+      };
+
+      html2pdf().set(opt).from(element).outputPdf().then((pdf: any) => {
+        console.log('PDF generated, downloading...');
+        pdf.save('passport-photos.pdf');
+      }).catch((error: any) => {
+        console.error('PDF generation failed:', error);
+        alert('PDF generation failed. Please check the console for details.');
+      });
+    }, 500);
   };
 
   const samplePhotoUrl = 'https://picsum.photos/seed/biometric/400/600';
@@ -72,7 +100,10 @@ export function PassportSection() {
             <Trash2 size={20} />
           </button>
           <button 
-            onClick={handleDownloadPDF}
+            onClick={() => {
+              console.log('Download PDF button clicked');
+              handleDownloadPDF();
+            }}
             disabled={!image}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:scale-100 disabled:shadow-none uppercase text-xs tracking-widest"
           >
