@@ -8,7 +8,7 @@ export async function parseIDCardExcel(file: File): Promise<IDCardData[]> {
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
@@ -46,6 +46,6 @@ export async function parseIDCardExcel(file: File): Promise<IDCardData[]> {
     };
 
     reader.onerror = (err) => reject(err);
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   });
 }
