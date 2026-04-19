@@ -6,6 +6,7 @@ import { IDCardData, CardCategory, CardOrientation, FieldStyle } from '../types'
 import { parseIDCardExcel } from '../lib/excelProcessor';
 import confetti from 'canvas-confetti';
 import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
 
 import * as XLSX from 'xlsx';
 
@@ -103,69 +104,149 @@ export function IDCardSection() {
   };
 
   const downloadCardsAsPDF = () => {
-    const element = document.getElementById('id-cards-print-area');
-    if (!element) {
-      console.error('ID cards print area not found');
-      alert('Print area not found. Please try again.');
+    console.log('Starting simplified PDF generation for ID cards');
+
+    // Create a simplified HTML version for PDF generation
+    const pdfContent = createSimplifiedIDCardsHTML(data);
+    if (!pdfContent) {
+      alert('No ID cards to export. Please upload data first.');
       return;
     }
 
-    console.log('Starting PDF generation for ID cards');
-    console.log('Element found:', element);
+    // Create a temporary container for PDF generation
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = pdfContent;
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    tempContainer.style.width = '800px';
+    tempContainer.style.backgroundColor = 'white';
+    document.body.appendChild(tempContainer);
 
-    // Add a small delay to ensure the element is fully rendered
-    setTimeout(() => {
-      const opt = {
-        margin: [0.5, 0.5, 0.5, 0.5], // top, right, bottom, left
-        filename: `id-cards-${selectedCategory}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: {
-          scale: 1.2, // Further reduced scale for better compatibility
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          width: element.scrollWidth,
-          height: element.scrollHeight,
-          ignoreElements: (element: any) => {
-            // Skip elements that might cause issues
-            return element.tagName === 'CANVAS' || element.classList.contains('confetti');
-          },
-          onclone: (clonedDoc: any) => {
-            // Remove or simplify problematic CSS in the cloned document
-            const styleSheets = clonedDoc.styleSheets;
-            for (let i = 0; i < styleSheets.length; i++) {
-              try {
-                const rules = styleSheets[i].cssRules || styleSheets[i].rules;
-                for (let j = 0; j < rules.length; j++) {
-                  const rule = rules[j];
-                  if (rule.cssText && rule.cssText.includes('oklab')) {
-                    // Replace oklab colors with fallback
-                    rule.cssText = rule.cssText.replace(/oklab\([^)]+\)/g, '#666666');
-                  }
-                }
-              } catch (e) {
-                // Ignore CSS parsing errors
-                console.warn('CSS parsing error in cloned document:', e);
-              }
-            }
-          }
-        },
-        jsPDF: {
-          unit: 'in',
-          format: 'a4',
-          orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
-          compress: true
-        }
-      };
+    const opt = {
+      margin: 0.5,
+      filename: `id-cards-${selectedCategory}.pdf`,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: {
+        scale: 1,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: tempContainer.scrollHeight
+      },
+      jsPDF: {
+        unit: 'in',
+        format: 'a4',
+        orientation: orientation === 'landscape' ? 'landscape' : 'portrait'
+      }
+    };
 
-      html2pdf().set(opt).from(element).outputPdf().then((pdf: any) => {
-        console.log('PDF generated, downloading...');
-        pdf.save(`id-cards-${selectedCategory}.pdf`);
-      }).catch((error: any) => {
-        console.error('PDF generation failed:', error);
-        alert('PDF generation failed. This might be due to complex CSS. Try using simpler styling or contact support.');
+    html2pdf().set(opt).from(tempContainer).save().then(() => {
+      console.log('PDF generated successfully');
+      document.body.removeChild(tempContainer);
+    }).catch((error: any) => {
+      console.error('PDF generation failed:', error);
+      document.body.removeChild(tempContainer);
+
+      // Fallback: Try direct jsPDF approach
+      console.log('Trying fallback PDF generation...');
+      generatePDFWithJsPDF(data);
+    });
+  };
+
+  const createSimplifiedIDCardsHTML = (cards: IDCardData[]) => {
+    if (!cards || cards.length === 0) return null;
+
+    return `
+      <div style="font-family: Arial, sans-serif; background: white; padding: 20px;">
+        <h1 style="text-align: center; color: #333; margin-bottom: 30px; font-size: 24px;">
+          ${selectedCategory.toUpperCase()} ID CARDS
+        </h1>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+          ${cards.map(card => `
+            <div style="border: 2px solid #333; border-radius: 10px; padding: 15px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+              <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                ${card.photoUrl ? `<img src="${card.photoUrl}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid #333;" />` : '<div style="width: 60px; height: 60px; border-radius: 50%; background: #ccc; margin-right: 15px;"></div>'}
+                <div>
+                  <div style="font-size: 18px; font-weight: bold; color: #333;">${card.fullName}</div>
+                  <div style="font-size: 12px; color: #666;">${card.role}</div>
+                </div>
+              </div>
+              <div style="border-top: 1px solid #ddd; padding-top: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+                  <div><strong>ID:</strong> ${card.studentId || card.employeeId || card.id}</div>
+                  <div><strong>Category:</strong> ${card.category}</div>
+                  ${card.grade ? `<div><strong>Grade:</strong> ${card.grade}</div>` : ''}
+                  ${card.department ? `<div><strong>Dept:</strong> ${card.department}</div>` : ''}
+                  ${card.expiryDate ? `<div><strong>Expires:</strong> ${card.expiryDate}</div>` : ''}
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  };
+
+  const generatePDFWithJsPDF = (cards: IDCardData[]) => {
+    try {
+      const pdf = new jsPDF({
+        orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
       });
-    }, 1000); // Increased delay
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const cardWidth = (pageWidth - 2 * margin) / 2;
+      const cardHeight = 50;
+
+      let yPosition = margin;
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text(`${selectedCategory.toUpperCase()} ID CARDS`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      cards.forEach((card, index) => {
+        if (yPosition + cardHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        // Draw card border
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.5);
+        pdf.rect(margin, yPosition, cardWidth - 5, cardHeight);
+
+        // Add photo placeholder
+        pdf.setFillColor(200, 200, 200);
+        pdf.circle(margin + 15, yPosition + 15, 8, 'F');
+
+        // Add text
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.text(card.fullName, margin + 30, yPosition + 12);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.text(card.role || '', margin + 30, yPosition + 20);
+
+        pdf.setFontSize(8);
+        pdf.text(`ID: ${card.studentId || card.employeeId || card.id}`, margin + 10, yPosition + 35);
+        pdf.text(`Category: ${card.category}`, margin + 10, yPosition + 42);
+
+        yPosition += cardHeight + 5;
+      });
+
+      pdf.save(`id-cards-${selectedCategory}.pdf`);
+      console.log('Fallback PDF generated successfully');
+    } catch (error) {
+      console.error('Fallback PDF generation also failed:', error);
+      alert('PDF generation failed. Please try a different browser or contact support.');
+    }
   };
 
   const samplePreviewData: Record<CardCategory, IDCardData> = {
