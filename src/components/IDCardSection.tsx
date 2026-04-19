@@ -120,12 +120,35 @@ export function IDCardSection() {
         filename: `id-cards-${selectedCategory}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: {
-          scale: 1.5, // Reduced scale for better compatibility
+          scale: 1.2, // Further reduced scale for better compatibility
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           width: element.scrollWidth,
-          height: element.scrollHeight
+          height: element.scrollHeight,
+          ignoreElements: (element: any) => {
+            // Skip elements that might cause issues
+            return element.tagName === 'CANVAS' || element.classList.contains('confetti');
+          },
+          onclone: (clonedDoc: any) => {
+            // Remove or simplify problematic CSS in the cloned document
+            const styleSheets = clonedDoc.styleSheets;
+            for (let i = 0; i < styleSheets.length; i++) {
+              try {
+                const rules = styleSheets[i].cssRules || styleSheets[i].rules;
+                for (let j = 0; j < rules.length; j++) {
+                  const rule = rules[j];
+                  if (rule.cssText && rule.cssText.includes('oklab')) {
+                    // Replace oklab colors with fallback
+                    rule.cssText = rule.cssText.replace(/oklab\([^)]+\)/g, '#666666');
+                  }
+                }
+              } catch (e) {
+                // Ignore CSS parsing errors
+                console.warn('CSS parsing error in cloned document:', e);
+              }
+            }
+          }
         },
         jsPDF: {
           unit: 'in',
@@ -140,9 +163,9 @@ export function IDCardSection() {
         pdf.save(`id-cards-${selectedCategory}.pdf`);
       }).catch((error: any) => {
         console.error('PDF generation failed:', error);
-        alert('PDF generation failed. Please check the console for details.');
+        alert('PDF generation failed. This might be due to complex CSS. Try using simpler styling or contact support.');
       });
-    }, 500);
+    }, 1000); // Increased delay
   };
 
   const samplePreviewData: Record<CardCategory, IDCardData> = {
