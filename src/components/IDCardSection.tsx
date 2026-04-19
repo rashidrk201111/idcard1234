@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { FileSpreadsheet, Download, Search, LayoutGrid, List as ListIcon, Trash2, CheckCircle2, GraduationCap, School as SchoolIcon, Building2, Smartphone, Monitor, Palette, Type, Sliders, ChevronDown, Wand2 } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, LayoutGrid, List as ListIcon, Trash2, CheckCircle2, GraduationCap, School as SchoolIcon, Building2, Smartphone, Monitor, Palette, Type, Sliders, ChevronDown, Wand2, Upload, Camera, User } from 'lucide-react';
 import { IDCard } from './IDCard';
 import { IDCardData, CardCategory, CardOrientation, FieldStyle } from '../types';
 import { parseIDCardExcel } from '../lib/excelProcessor';
@@ -35,6 +35,9 @@ export function IDCardSection() {
   const [headerLabelStyle, setHeaderLabelStyle] = useState<FieldStyle>({ fontFamily: 'Inter', fontSize: 9, color: '', fontWeight: '900' });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedPhotos, setUploadedPhotos] = useState<{[key: string]: string}>({});
+  const [selectedCardForPhoto, setSelectedCardForPhoto] = useState<string | null>(null);
 
   const fontFamilies = ['Inter', 'Space Grotesk', 'Outfit', 'Playfair Display', 'JetBrains Mono', 'Cormorant Garamond', 'Montserrat', 'Anton', 'monospace', 'serif', 'sans-serif'];
 
@@ -182,6 +185,30 @@ export function IDCardSection() {
     }
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && selectedCardForPhoto) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const photoUrl = event.target?.result as string;
+        setUploadedPhotos(prev => ({
+          ...prev,
+          [selectedCardForPhoto]: photoUrl
+        }));
+        
+        // Update the card data with the photo
+        setData(prev => prev.map(card => 
+          card.id === selectedCardForPhoto 
+            ? { ...card, photoUrl } 
+            : card
+        ));
+        
+        setSelectedCardForPhoto(null);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Update existing data when settings change
   const updateVisualSettings = (params: { orient?: CardOrientation, color?: string, grad?: string, effect?: typeof surfaceEffect, layout?: typeof layoutType }) => {
     const newOrientation = params.orient ?? orientation;
@@ -319,6 +346,80 @@ export function IDCardSection() {
           </button>
         </div>
       </div>
+
+      {/* Photo Upload Section - Only show when cards exist */}
+      {data.length > 0 && (
+        <div className="bg-bg-surface p-6 rounded-3xl border border-border-subtle shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-bold text-text-main text-sm uppercase tracking-[0.2em] flex items-center gap-2">
+                <User size={18} className="text-accent" />
+                ID Card Photos
+              </h3>
+              <p className="text-text-dim text-xs font-medium mt-1">Upload individual photos for each ID card</p>
+            </div>
+            <div className="text-xs text-text-dim font-bold">
+              {Object.keys(uploadedPhotos).length} / {data.length} photos uploaded
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {data.map((card) => (
+              <div key={card.id} className="bg-bg-card/50 p-4 rounded-2xl border border-border-subtle">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
+                    <User size={14} className="text-accent" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text-main font-bold text-xs truncate">{card.fullName}</p>
+                    <p className="text-text-dim text-[10px] uppercase tracking-widest">{card.role}</p>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => {
+                    setSelectedCardForPhoto(card.id);
+                    photoInputRef.current?.click();
+                  }}
+                  className={`relative h-20 border-2 border-dashed rounded-xl flex items-center justify-center cursor-pointer transition-all group ${
+                    uploadedPhotos[card.id] 
+                      ? 'border-accent bg-accent/5' 
+                      : 'border-border-subtle hover:border-accent/40 bg-bg-base/30'
+                  }`}
+                >
+                  {uploadedPhotos[card.id] ? (
+                    <div className="relative w-full h-full group/photo">
+                      <img 
+                        src={uploadedPhotos[card.id]} 
+                        className="w-full h-full object-cover rounded-lg" 
+                        alt={`${card.fullName} photo`}
+                      />
+                      <div className="absolute inset-0 bg-bg-base/60 backdrop-blur-sm opacity-0 group-hover/photo:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <button className="px-3 py-1 bg-accent text-bg-base rounded-lg font-bold text-[10px] uppercase tracking-widest">
+                          Change Photo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <Upload size={16} className="text-text-dim/60 group-hover:text-accent transition-colors mx-auto mb-1" />
+                      <p className="text-[9px] text-text-dim font-bold uppercase tracking-widest">Upload Photo</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <input 
+            ref={photoInputRef}
+            type="file" 
+            className="hidden" 
+            accept="image/*"
+            onChange={handlePhotoUpload}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="space-y-8">
