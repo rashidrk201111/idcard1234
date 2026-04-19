@@ -148,6 +148,8 @@ export function PassportSection() {
       console.error('PDF generation failed:', error);
       alert('PDF generation failed. Please try again or contact support.');
     });
+  };
+
   const samplePhotoUrl = 'https://picsum.photos/seed/biometric/400/600';
 
   return (
