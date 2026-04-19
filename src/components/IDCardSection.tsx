@@ -5,6 +5,7 @@ import { IDCard } from './IDCard';
 import { IDCardData, CardCategory, CardOrientation, FieldStyle } from '../types';
 import { parseIDCardExcel } from '../lib/excelProcessor';
 import confetti from 'canvas-confetti';
+import html2pdf from 'html2pdf.js';
 
 import * as XLSX from 'xlsx';
 
@@ -99,6 +100,21 @@ export function IDCardSection() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `${selectedCategory}_Template`);
     XLSX.writeFile(workbook, `ID_Studio_${selectedCategory}_Template.xlsx`);
+  };
+
+  const downloadCardsAsPDF = () => {
+    const element = document.getElementById('id-cards-print-area');
+    if (!element) return;
+
+    const opt = {
+      margin: 0.5,
+      filename: `id-cards-${selectedCategory}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'a4', orientation: orientation === 'landscape' ? 'landscape' : 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
   };
 
   const samplePreviewData: Record<CardCategory, IDCardData> = {
@@ -323,6 +339,21 @@ export function IDCardSection() {
                 className="p-3 text-text-dim hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-border-subtle"
               >
                 <Trash2 size={20} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {data.length > 0 && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onClick={downloadCardsAsPDF}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg shadow-blue-600/20 uppercase text-xs tracking-widest"
+              >
+                <Download size={18} />
+                Download PDF
               </motion.button>
             )}
           </AnimatePresence>
@@ -780,7 +811,7 @@ export function IDCardSection() {
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div id="id-cards-print-area" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
               <AnimatePresence>
                 {filteredData.map((item, idx) => (
                   <motion.div

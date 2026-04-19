@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Upload, Camera, Printer, RotateCw, Trash2, Maximize } from 'lucide-react';
+import { Upload, Camera, Printer, RotateCw, Trash2, Maximize, Download } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 export function PassportSection() {
   const [image, setImage] = useState<string | null>(null);
@@ -38,6 +39,21 @@ export function PassportSection() {
     window.print();
   };
 
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('passport-print-area');
+    if (!element) return;
+
+    const opt = {
+      margin: 0.5,
+      filename: 'passport-photos.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+  };
+
   const samplePhotoUrl = 'https://picsum.photos/seed/biometric/400/600';
 
   return (
@@ -54,6 +70,14 @@ export function PassportSection() {
             className="p-3 text-text-dim hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-border-subtle"
           >
             <Trash2 size={20} />
+          </button>
+          <button 
+            onClick={handleDownloadPDF}
+            disabled={!image}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:scale-100 disabled:shadow-none uppercase text-xs tracking-widest"
+          >
+            <Download size={18} />
+            Download PDF
           </button>
           <button 
             onClick={handlePrint}
@@ -267,6 +291,7 @@ export function PassportSection() {
               <AnimatePresence mode="wait">
                 {image ? (
                   <motion.div 
+                    id="passport-print-area"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
