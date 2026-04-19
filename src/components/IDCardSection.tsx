@@ -104,54 +104,112 @@ export function IDCardSection() {
   };
 
   const downloadCardsAsPDF = () => {
-    console.log('Starting simplified PDF generation for ID cards');
+    const element = document.getElementById('id-cards-print-area');
+    if (!element) {
+      console.error('ID cards print area not found');
+      alert('Print area not found. Please try again.');
+      return;
+    }
 
-    // Create a simplified HTML version for PDF generation
-    const pdfContent = createSimplifiedIDCardsHTML(data);
-    if (!pdfContent) {
+    if (data.length === 0) {
       alert('No ID cards to export. Please upload data first.');
       return;
     }
 
-    // Create a temporary container for PDF generation
-    const tempContainer = document.createElement('div');
-    tempContainer.innerHTML = pdfContent;
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '-9999px';
-    tempContainer.style.width = '800px';
-    tempContainer.style.backgroundColor = 'white';
-    document.body.appendChild(tempContainer);
+    console.log('Starting PDF generation for ID cards');
+    console.log('Element found:', element);
 
-    const opt = {
-      margin: 0.5,
-      filename: `id-cards-${selectedCategory}.pdf`,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: {
-        scale: 1,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        width: 800,
-        height: tempContainer.scrollHeight
-      },
-      jsPDF: {
-        unit: 'in',
-        format: 'a4',
-        orientation: orientation === 'landscape' ? 'landscape' : 'portrait'
-      }
-    };
+    // Ensure all images are loaded before generating PDF
+    const images = element.querySelectorAll('img');
+    const imagePromises = Array.from(images).map(img => {
+      return new Promise((resolve) => {
+        if (img.complete) {
+          resolve(true);
+        } else {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(true); // Continue even if image fails
+        }
+      });
+    });
 
-    html2pdf().set(opt).from(tempContainer).save().then(() => {
-      console.log('PDF generated successfully');
-      document.body.removeChild(tempContainer);
-    }).catch((error: any) => {
-      console.error('PDF generation failed:', error);
-      document.body.removeChild(tempContainer);
+    Promise.all(imagePromises).then(() => {
+      const opt = {
+        margin: 0.5,
+        filename: `id-cards-${selectedCategory}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 1.5,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: element.scrollWidth,
+          height: element.scrollHeight,
+          ignoreElements: (element: any) => {
+            // Skip elements that might cause issues
+            return element.tagName === 'CANVAS' ||
+                   element.classList.contains('confetti') ||
+                   element.classList.contains('animate-pulse') ||
+                   element.classList.contains('hover:');
+          },
+          onclone: (clonedDoc: any) => {
+            // Remove or simplify problematic CSS in the cloned document
+            try {
+              const allElements = clonedDoc.querySelectorAll('*');
+              allElements.forEach((el: any) => {
+                // Remove problematic CSS properties
+                const style = el.style;
+                if (style) {
+                  // Remove CSS custom properties and problematic functions
+                  style.cssText = style.cssText
+                    .replace(/--[^;]+;?/g, '') // Remove CSS variables
+                    .replace(/oklab\([^)]+\)/g, '#666666') // Replace oklab
+                    .replace(/lab\([^)]+\)/g, '#666666') // Replace lab
+                    .replace(/lch\([^)]+\)/g, '#666666') // Replace lch
+                    .replace(/hwb\([^)]+\)/g, '#666666') // Replace hwb
+                    .replace(/color\([^)]+\)/g, '#666666') // Replace color()
+                    .replace(/backdrop-blur[^;]*;?/g, '') // Remove backdrop-blur
+                    .replace(/filter:[^;]*;?/g, '') // Remove filters
+                    .replace(/transform:[^;]*;?/g, '') // Remove transforms
+                    .replace(/animation:[^;]*;?/g, '') // Remove animations
+                    .replace(/transition:[^;]*;?/g, ''); // Remove transitions
+                }
 
-      // Fallback: Try direct jsPDF approach
-      console.log('Trying fallback PDF generation...');
-      generatePDFWithJsPDF(data);
+                // Remove problematic classes
+                el.className = el.className
+                  .replace(/hover:[^\s]*/g, '')
+                  .replace(/focus:[^\s]*/g, '')
+                  .replace(/active:[^\s]*/g, '')
+                  .replace(/animate-[^\s]*/g, '')
+                  .replace(/transition-[^\s]*/g, '')
+                  .replace(/transform-[^\s]*/g, '');
+              });
+
+              // Force white background
+              clonedDoc.body.style.backgroundColor = '#ffffff';
+              const container = clonedDoc.getElementById('id-cards-print-area');
+              if (container) {
+                container.style.backgroundColor = '#ffffff';
+                container.style.color = '#000000';
+              }
+            } catch (e) {
+              console.warn('CSS preprocessing error:', e);
+            }
+          }
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'a4',
+          orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
+          compress: true
+        }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        console.log('PDF generated successfully');
+      }).catch((error: any) => {
+        console.error('PDF generation failed:', error);
+        alert('PDF generation failed. Please try again or contact support.');
+      });
     });
   };
 
@@ -247,8 +305,6 @@ export function IDCardSection() {
       console.error('Fallback PDF generation also failed:', error);
       alert('PDF generation failed. Please try a different browser or contact support.');
     }
-  };
-
   const samplePreviewData: Record<CardCategory, IDCardData> = {
     school: {
       id: 's1',

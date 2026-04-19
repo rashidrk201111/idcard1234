@@ -41,55 +41,112 @@ export function PassportSection() {
   };
 
   const handleDownloadPDF = () => {
+    const element = document.getElementById('passport-print-area');
+    if (!element) {
+      console.error('Passport print area not found');
+      alert('Print area not found. Please try again.');
+      return;
+    }
+
     if (!image) {
       alert('Please upload a photo first.');
       return;
     }
 
-    console.log('Starting simplified PDF generation for passport photos');
+    console.log('Starting PDF generation for passport photos');
+    console.log('Element found:', element);
 
-    // Create a simplified HTML version for PDF generation
-    const pdfContent = createSimplifiedPassportHTML();
+    // Ensure the image is loaded before generating PDF
+    const imgElement = element.querySelector('img');
+    if (imgElement) {
+      const imagePromise = new Promise((resolve) => {
+        if (imgElement.complete) {
+          resolve(true);
+        } else {
+          imgElement.onload = () => resolve(true);
+          imgElement.onerror = () => resolve(true);
+        }
+      });
 
-    // Create a temporary container for PDF generation
-    const tempContainer = document.createElement('div');
-    tempContainer.innerHTML = pdfContent;
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '-9999px';
-    tempContainer.style.width = '800px';
-    tempContainer.style.backgroundColor = 'white';
-    document.body.appendChild(tempContainer);
+      imagePromise.then(() => {
+        generatePassportPDF(element);
+      });
+    } else {
+      generatePassportPDF(element);
+    }
+  };
 
+  const generatePassportPDF = (element: HTMLElement) => {
     const opt = {
       margin: 0.5,
       filename: 'passport-photos.pdf',
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: {
-        scale: 1,
+        scale: 1.5,
         useCORS: true,
-        allowTaint: false,
+        allowTaint: true,
         backgroundColor: '#ffffff',
-        width: 800,
-        height: tempContainer.scrollHeight
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        ignoreElements: (element: any) => {
+          return element.tagName === 'CANVAS' ||
+                 element.classList.contains('confetti') ||
+                 element.classList.contains('animate-pulse') ||
+                 element.classList.contains('hover:');
+        },
+        onclone: (clonedDoc: any) => {
+          try {
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              const style = el.style;
+              if (style) {
+                style.cssText = style.cssText
+                  .replace(/--[^;]+;?/g, '') // Remove CSS variables
+                  .replace(/oklab\([^)]+\)/g, '#666666') // Replace oklab
+                  .replace(/lab\([^)]+\)/g, '#666666') // Replace lab
+                  .replace(/lch\([^)]+\)/g, '#666666') // Replace lch
+                  .replace(/hwb\([^)]+\)/g, '#666666') // Replace hwb
+                  .replace(/color\([^)]+\)/g, '#666666') // Replace color()
+                  .replace(/backdrop-blur[^;]*;?/g, '') // Remove backdrop-blur
+                  .replace(/filter:[^;]*;?/g, '') // Remove filters
+                  .replace(/transform:[^;]*;?/g, '') // Remove transforms
+                  .replace(/animation:[^;]*;?/g, '') // Remove animations
+                  .replace(/transition:[^;]*;?/g, ''); // Remove transitions
+              }
+
+              el.className = el.className
+                .replace(/hover:[^\s]*/g, '')
+                .replace(/focus:[^\s]*/g, '')
+                .replace(/active:[^\s]*/g, '')
+                .replace(/animate-[^\s]*/g, '')
+                .replace(/transition-[^\s]*/g, '')
+                .replace(/transform-[^\s]*/g, '');
+            });
+
+            clonedDoc.body.style.backgroundColor = '#ffffff';
+            const container = clonedDoc.getElementById('passport-print-area');
+            if (container) {
+              container.style.backgroundColor = '#ffffff';
+              container.style.color = '#000000';
+            }
+          } catch (e) {
+            console.warn('CSS preprocessing error:', e);
+          }
+        }
       },
       jsPDF: {
         unit: 'in',
         format: 'a4',
-        orientation: 'portrait'
+        orientation: 'portrait',
+        compress: true
       }
     };
 
-    html2pdf().set(opt).from(tempContainer).save().then(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
       console.log('PDF generated successfully');
-      document.body.removeChild(tempContainer);
     }).catch((error: any) => {
       console.error('PDF generation failed:', error);
-      document.body.removeChild(tempContainer);
-
-      // Fallback: Try direct jsPDF approach
-      console.log('Trying fallback PDF generation...');
-      generatePassportPDFWithJsPDF();
+      alert('PDF generation failed. Please try again or contact support.');
     });
   };
 
@@ -155,8 +212,6 @@ export function PassportSection() {
       console.error('Fallback PDF generation also failed:', error);
       alert('PDF generation failed. Please try a different browser or contact support.');
     }
-  };
-
   const samplePhotoUrl = 'https://picsum.photos/seed/biometric/400/600';
 
   return (
