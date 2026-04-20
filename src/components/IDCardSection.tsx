@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { FileSpreadsheet, Download, Search, LayoutGrid, List as ListIcon, Trash2, CheckCircle2, GraduationCap, School as SchoolIcon, Building2, Smartphone, Monitor, Palette, Type, Sliders, ChevronDown, Wand2, Upload, Camera, User } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, LayoutGrid, List as ListIcon, Trash2, CircleCheck as CheckCircle2, GraduationCap, School as SchoolIcon, Building2, Smartphone, Monitor, Palette, Type, FileSliders as Sliders, ChevronDown, Wand as Wand2, Upload, Camera, User } from 'lucide-react';
 import { IDCard } from './IDCard';
 import { IDCardData, CardCategory, CardOrientation, FieldStyle } from '../types';
 import { parseIDCardExcel } from '../lib/excelProcessor';
@@ -305,6 +305,8 @@ export function IDCardSection() {
       console.error('Fallback PDF generation also failed:', error);
       alert('PDF generation failed. Please try a different browser or contact support.');
     }
+  };
+
   const samplePreviewData: Record<CardCategory, IDCardData> = {
     school: {
       id: 's1',
